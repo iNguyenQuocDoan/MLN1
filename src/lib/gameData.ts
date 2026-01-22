@@ -82,9 +82,9 @@ export const tiles: Tile[] = [
   },
   {
     index: 5,
-    type: "SUPERSTRUCTURE_CARD",
-    name: "Thượng tầng",
-    description: "Luật lệ & ý thức hệ thay đổi. Rút 1 lá.",
+    type: "LUCKY",
+    name: "Ô May Mắn",
+    description: "May mắn đến! Nhận hiệu ứng ngẫu nhiên.",
   },
   {
     index: 6,
@@ -144,9 +144,9 @@ export const tiles: Tile[] = [
   },
   {
     index: 12,
-    type: "INFRASTRUCTURE_CARD",
-    name: "Hạ tầng",
-    description: "Điều kiện vật chất thay đổi. Rút 1 lá.",
+    type: "LUCKY",
+    name: "Ô May Mắn",
+    description: "May mắn đến! Nhận hiệu ứng ngẫu nhiên.",
   },
   {
     index: 13,

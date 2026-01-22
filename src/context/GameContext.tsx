@@ -11,6 +11,7 @@ import { CRISIS_BAIL, MAX_TURNS, STARTING_CASH, tiles } from "@/lib/gameData";
 import { questions, type Question } from "@/lib/questions";
 import type {
   LogEntry,
+  LuckyEffect,
   OwnedProperty,
   Player,
   PlayerId,
@@ -22,6 +23,7 @@ import { useSession } from "@/context/SessionContext";
 type ActiveModal =
   | { kind: "tileFlashcard"; tileIndex: number }
   | { kind: "question"; question: Question }
+  | { kind: "lucky"; effect: LuckyEffect }
   | { kind: "none" };
 
 type GameState = {
@@ -93,6 +95,7 @@ type Action =
   | { type: "ROLL_DICE" }
   | { type: "OPEN_QUESTION" }
   | { type: "ANSWER_QUESTION"; correct: boolean }
+  | { type: "ANSWER_TIMEOUT" }
   | { type: "CLOSE_MODAL" }
   | { type: "CLEAR_MESSAGE" }
   | { type: "BUY_CONFIRMED" }
@@ -101,10 +104,26 @@ type Action =
   | { type: "PAY_BAIL" }
   | { type: "BOT_TAKE_TURN" }
   | { type: "RESET" }
-  | { type: "SYNC_PLAYERS"; names: string[]; count: number };
+  | {
+      type: "SYNC_PLAYERS";
+      names: string[];
+      count: number;
+      turnOrder: number[] | null;
+    }
+  | { type: "APPLY_LUCKY_EFFECT" };
 
 function rollDie() {
   return 1 + Math.floor(Math.random() * 6);
+}
+
+// Fisher-Yates shuffle algorithm
+function shuffleArray<T>(array: T[]): T[] {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
 }
 
 function nextIndex(pos: number, steps: number) {
@@ -140,6 +159,18 @@ function updatePlayer(
   };
 }
 
+function generateLuckyEffect(): LuckyEffect {
+  const rand = Math.random();
+  if (rand < 0.33) {
+    return { kind: "rollAgain" };
+  } else if (rand < 0.66) {
+    return { kind: "moveForward", steps: 1 };
+  } else {
+    const backSteps = 1 + Math.floor(Math.random() * 3); // 1-3 steps back
+    return { kind: "moveBackward", steps: backSteps };
+  }
+}
+
 function handleLanding(state: GameState, tile: Tile): GameState {
   const current = state.players[state.currentPlayerIndex];
 
@@ -162,13 +193,21 @@ function handleLanding(state: GameState, tile: Tile): GameState {
   if (tile.type === "SOCIAL_WELFARE") {
     return addLog(next, `${current.name} nghỉ tại ô Phúc lợi xã hội.`);
   }
+  if (tile.type === "LUCKY") {
+    const effect = generateLuckyEffect();
+    next = addLog(next, `${current.name} đến ô May Mắn! 🍀`);
+    return {
+      ...next,
+      activeModal: { kind: "lucky", effect },
+    };
+  }
   return addLog(next, `${current.name} dừng tại ô số ${tile.index}.`);
 }
 
 function reducer(state: GameState, action: Action): GameState {
   switch (action.type) {
     case "SYNC_PLAYERS": {
-      const { names, count } = action;
+      const { names, count, turnOrder } = action;
       const validCount = Math.min(6, Math.max(1, count));
       const playerIds: PlayerId[] = [
         "PLAYER_0",
@@ -187,7 +226,7 @@ function reducer(state: GameState, action: Action): GameState {
         { name: "KT", icon: "Crown", colorClass: "text-cyan-600" },
       ];
 
-      const newPlayers: Player[] = Array.from(
+      const basePlayers: Player[] = Array.from(
         { length: validCount },
         (_, idx) => ({
           id: playerIds[idx],
@@ -203,14 +242,36 @@ function reducer(state: GameState, action: Action): GameState {
         }),
       );
 
+      // Nếu có turnOrder từ session, sử dụng nó để sắp xếp thứ tự người chơi
+      // Nếu không, giữ nguyên thứ tự mặc định
+      const newPlayers =
+        turnOrder && turnOrder.length === validCount
+          ? turnOrder.map((playerId) => basePlayers[playerId])
+          : basePlayers;
+
       return {
         ...state,
         players: newPlayers,
-        currentPlayerIndex: Math.min(state.currentPlayerIndex, validCount - 1),
+        currentPlayerIndex: 0, // Luôn bắt đầu từ người đầu tiên trong danh sách
       };
     }
-    case "RESET":
-      return initialState;
+    case "RESET": {
+      // Giữ nguyên thứ tự người chơi hiện tại, chỉ reset stats
+      const resetPlayers = state.players.map((p) => ({
+        ...p,
+        position: 0,
+        cash: STARTING_CASH,
+        skipTurns: 0,
+        correct: 0,
+        wrong: 0,
+        laps: 0,
+      }));
+      return {
+        ...initialState,
+        players: resetPlayers,
+        questionPointer: Math.floor(Math.random() * questions.length), // Random start để shuffle câu hỏi
+      };
+    }
     case "CLOSE_MODAL":
       return { ...state, activeModal: { kind: "none" } };
     case "OPEN_QUESTION": {
@@ -254,6 +315,24 @@ function reducer(state: GameState, action: Action): GameState {
         ...next,
         diceAllowance: allowance,
         activeModal: { kind: "none" },
+      };
+    }
+    case "ANSWER_TIMEOUT": {
+      const current = state.players[state.currentPlayerIndex];
+      if (!current.isHuman) return state;
+      if (!state.questionForTurn) return state;
+
+      let next = state;
+      next = updatePlayer(next, current.id, (p) => ({
+        ...p,
+        wrong: p.wrong + 1,
+      }));
+      next = addLog(next, `${current.name} HẾT GIỜ → không được gieo xúc xắc!`);
+      return {
+        ...next,
+        diceAllowance: null,
+        activeModal: { kind: "none" },
+        hasActedThisTurn: true,
       };
     }
     case "CLEAR_MESSAGE":
@@ -359,6 +438,55 @@ function reducer(state: GameState, action: Action): GameState {
       if (wraps) next = { ...next, turn: Math.min(MAX_TURNS, next.turn + 1) };
       return next;
     }
+    case "APPLY_LUCKY_EFFECT": {
+      const current = state.players[state.currentPlayerIndex];
+      if (state.activeModal.kind !== "lucky") return state;
+
+      const effect = state.activeModal.effect;
+      let next = state;
+
+      if (effect.kind === "rollAgain") {
+        // Allow rolling dice again (reset hasActedThisTurn and give dice allowance)
+        next = addLog(next, `🎲 ${current.name} được gieo xúc xắc thêm 1 lần!`);
+        return {
+          ...next,
+          activeModal: { kind: "none" },
+          hasActedThisTurn: false,
+          diceAllowance: 1,
+          dice: null,
+        };
+      } else if (effect.kind === "moveForward") {
+        const moved = nextIndex(current.position, effect.steps);
+        next = addLog(
+          next,
+          `⬆️ ${current.name} tiến thêm ${effect.steps} bước!`,
+        );
+        next = updatePlayer(next, current.id, (p) => ({
+          ...p,
+          position: moved.next,
+        }));
+        if (moved.passedGo) {
+          next = updatePlayer(next, current.id, (p) => ({
+            ...p,
+            laps: p.laps + 1,
+          }));
+          next = addLog(next, `${current.name} hoàn thành 1 vòng bàn cờ!`);
+        }
+        return { ...next, activeModal: { kind: "none" } };
+      } else if (effect.kind === "moveBackward") {
+        const n = tiles.length;
+        let newPos = current.position - effect.steps;
+        if (newPos < 0) newPos = n + newPos; // Wrap around
+        next = addLog(next, `⬇️ ${current.name} lùi ${effect.steps} bước!`);
+        next = updatePlayer(next, current.id, (p) => ({
+          ...p,
+          position: newPos,
+        }));
+        return { ...next, activeModal: { kind: "none" } };
+      }
+
+      return { ...next, activeModal: { kind: "none" } };
+    }
     default:
       return state;
   }
@@ -370,6 +498,7 @@ type GameApi = {
   rollDice: () => void;
   openQuestion: () => void;
   answerQuestion: (correct: boolean) => void;
+  answerTimeout: () => void;
   endTurn: () => void;
   buy: () => void;
   build: (tileIndex: number) => void;
@@ -377,6 +506,7 @@ type GameApi = {
   closeModal: () => void;
   clearMessage: () => void;
   reset: () => void;
+  applyLuckyEffect: () => void;
 };
 
 const Ctx = createContext<GameApi | null>(null);
@@ -389,8 +519,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const names = session.players.map((p) => p.name);
     const count = session.playerCount;
-    dispatch({ type: "SYNC_PLAYERS", names, count });
-  }, [session.players, session.playerCount]);
+    const turnOrder = session.turnOrder;
+    dispatch({ type: "SYNC_PLAYERS", names, count, turnOrder });
+  }, [session.players, session.playerCount, session.turnOrder]);
 
   const api = useMemo<GameApi>(
     () => ({
@@ -400,6 +531,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       openQuestion: () => dispatch({ type: "OPEN_QUESTION" }),
       answerQuestion: (correct) =>
         dispatch({ type: "ANSWER_QUESTION", correct }),
+      answerTimeout: () => dispatch({ type: "ANSWER_TIMEOUT" }),
       endTurn: () => dispatch({ type: "END_TURN" }),
       buy: () => dispatch({ type: "BUY_CONFIRMED" }),
       build: (tileIndex) => dispatch({ type: "BUILD_UPGRADE", tileIndex }),
@@ -407,6 +539,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       closeModal: () => dispatch({ type: "CLOSE_MODAL" }),
       clearMessage: () => dispatch({ type: "CLEAR_MESSAGE" }),
       reset: () => dispatch({ type: "RESET" }),
+      applyLuckyEffect: () => dispatch({ type: "APPLY_LUCKY_EFFECT" }),
     }),
     [state],
   );

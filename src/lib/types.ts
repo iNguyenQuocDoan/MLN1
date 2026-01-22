@@ -22,7 +22,13 @@ export type TileType =
   | "SUPERSTRUCTURE_CARD"
   | "ECONOMIC_CRISIS"
   | "SOCIAL_WELFARE"
-  | "GO_TO_CRISIS";
+  | "GO_TO_CRISIS"
+  | "LUCKY";
+
+export type LuckyEffect =
+  | { kind: "rollAgain" }
+  | { kind: "moveForward"; steps: number }
+  | { kind: "moveBackward"; steps: number };
 
 export type TileBase = {
   index: number;

@@ -1,11 +1,12 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import {
   PLAYER_AVATARS,
   PLAYER_COLORS,
   useSession,
 } from "@/context/SessionContext";
+import { TurnOrderLottery } from "./TurnOrderLottery";
 
 const avatarChoices = Array.from(
   new Set([...PLAYER_AVATARS, "🚀", "🎯", "🌿", "🛰️", "🐙"]),
@@ -27,7 +28,10 @@ export function PlayerSetup() {
     setPlayerAvatar,
     resetScores,
     resetAll,
+    shuffleTurnOrder,
   } = useSession();
+
+  const [showLottery, setShowLottery] = useState(false);
 
   return (
     <div className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-lg shadow-slate-900/30">
@@ -45,6 +49,12 @@ export function PlayerSetup() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setShowLottery(true)}
+            className="rounded-xl border border-amber-200/20 bg-amber-500/10 px-3 py-2 text-sm font-semibold text-amber-100 hover:bg-amber-500/15 transition-all hover:scale-105"
+          >
+            🎰 Xổ số thứ tự
+          </button>
           <button
             onClick={resetScores}
             className="rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm font-semibold text-white hover:bg-white/10"
@@ -90,93 +100,123 @@ export function PlayerSetup() {
       </div>
 
       <div className="mt-4 grid gap-3 md:grid-cols-2">
-        {state.players.map((p) => (
-          <div
-            key={p.id}
-            className="rounded-2xl border border-white/10 bg-slate-950/40 p-4 ring-1 ring-white/5 transition hover:border-white/20 hover:ring-white/10"
-          >
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <span
-                  className="flex h-11 w-11 items-center justify-center rounded-full border border-white/20 text-lg font-semibold shadow-inner"
-                  style={{ backgroundColor: p.color }}
-                  aria-label={`Avatar nhóm ${p.id + 1}`}
-                >
-                  {p.avatar || initials(p.name)}
-                </span>
-                <div>
-                  <div className="text-xs uppercase tracking-wide text-slate-300">
-                    Nhóm {p.id + 1}
+        {state.players.map((p) => {
+          // Tìm thứ tự của player này trong turnOrder
+          const turnPosition = state.turnOrder
+            ? state.turnOrder.indexOf(p.id) + 1
+            : null;
+
+          return (
+            <div
+              key={p.id}
+              className="rounded-2xl border border-white/10 bg-slate-950/40 p-4 ring-1 ring-white/5 transition hover:border-white/20 hover:ring-white/10"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <span
+                    className="flex h-11 w-11 items-center justify-center rounded-full border border-white/20 text-lg font-semibold shadow-inner"
+                    style={{ backgroundColor: p.color }}
+                    aria-label={`Avatar nhóm ${p.id + 1}`}
+                  >
+                    {p.avatar || initials(p.name)}
+                  </span>
+                  <div>
+                    <div className="text-xs uppercase tracking-wide text-slate-300">
+                      Nhóm {p.id + 1}
+                    </div>
+                    <input
+                      value={p.name}
+                      onChange={(e) => setPlayerName(p.id, e.target.value)}
+                      className="mt-1 w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white placeholder:text-slate-400 outline-none focus:border-white/25"
+                      placeholder={`Tên nhóm ${p.id + 1}`}
+                    />
                   </div>
-                  <input
-                    value={p.name}
-                    onChange={(e) => setPlayerName(p.id, e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white placeholder:text-slate-400 outline-none focus:border-white/25"
-                    placeholder={`Tên nhóm ${p.id + 1}`}
-                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  {turnPosition && (
+                    <div className="rounded-full bg-gradient-to-r from-amber-500 to-yellow-500 px-3 py-1 text-xs font-black text-slate-900 shadow-lg">
+                      Lượt {turnPosition}
+                    </div>
+                  )}
+                  <div className="rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold text-white">
+                    Điểm: {p.score}
+                  </div>
                 </div>
               </div>
-              <div className="rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold text-white">
-                Điểm: {p.score}
-              </div>
-            </div>
 
-            <div className="mt-4 space-y-2">
-              <div className="flex items-center justify-between text-xs text-slate-300">
-                <span>Chọn màu nhận diện</span>
-                <span className="text-slate-400">Hiện trên badge & avatar</span>
+              <div className="mt-4 space-y-2">
+                <div className="flex items-center justify-between text-xs text-slate-300">
+                  <span>Chọn màu nhận diện</span>
+                  <span className="text-slate-400">
+                    Hiện trên badge & avatar
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {PLAYER_COLORS.map((c, idx) => {
+                    const selected = p.color === c;
+                    return (
+                      <button
+                        key={c}
+                        onClick={() => setPlayerColor(p.id, c)}
+                        className={[
+                          "h-9 w-9 rounded-full border transition focus:outline-none focus:ring-2 focus:ring-white/60",
+                          selected
+                            ? "ring-2 ring-white/80 border-white/70"
+                            : "border-white/20",
+                        ].join(" ")}
+                        style={{ backgroundColor: c }}
+                        aria-label={`Chọn màu ${idx + 1}`}
+                      />
+                    );
+                  })}
+                </div>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {PLAYER_COLORS.map((c, idx) => {
-                  const selected = p.color === c;
-                  return (
-                    <button
-                      key={c}
-                      onClick={() => setPlayerColor(p.id, c)}
-                      className={[
-                        "h-9 w-9 rounded-full border transition focus:outline-none focus:ring-2 focus:ring-white/60",
-                        selected
-                          ? "ring-2 ring-white/80 border-white/70"
-                          : "border-white/20",
-                      ].join(" ")}
-                      style={{ backgroundColor: c }}
-                      aria-label={`Chọn màu ${idx + 1}`}
-                    />
-                  );
-                })}
-              </div>
-            </div>
 
-            <div className="mt-4 space-y-2">
-              <div className="flex items-center justify-between text-xs text-slate-300">
-                <span>Chọn avatar</span>
-                <span className="text-slate-400">Dễ nhìn khi đổi lượt</span>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {avatarChoices.map((a) => {
-                  const selected = p.avatar === a;
-                  return (
-                    <button
-                      key={a}
-                      onClick={() => setPlayerAvatar(p.id, a)}
-                      className={[
-                        "flex h-10 min-w-[2.5rem] items-center justify-center rounded-xl border px-2 text-lg transition",
-                        "bg-white/5 text-white hover:bg-white/10",
-                        selected
-                          ? "border-white/60 ring-2 ring-white/70"
-                          : "border-white/15",
-                      ].join(" ")}
-                      aria-label={`Avatar ${a}`}
-                    >
-                      {a}
-                    </button>
-                  );
-                })}
+              <div className="mt-4 space-y-2">
+                <div className="flex items-center justify-between text-xs text-slate-300">
+                  <span>Chọn avatar</span>
+                  <span className="text-slate-400">Dễ nhìn khi đổi lượt</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {avatarChoices.map((a) => {
+                    const selected = p.avatar === a;
+                    return (
+                      <button
+                        key={a}
+                        onClick={() => setPlayerAvatar(p.id, a)}
+                        className={[
+                          "flex h-10 min-w-[2.5rem] items-center justify-center rounded-xl border px-2 text-lg transition",
+                          "bg-white/5 text-white hover:bg-white/10",
+                          selected
+                            ? "border-white/60 ring-2 ring-white/70"
+                            : "border-white/15",
+                        ].join(" ")}
+                        aria-label={`Avatar ${a}`}
+                      >
+                        {a}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
+
+      {/* Turn Order Lottery Modal */}
+      {showLottery && (
+        <TurnOrderLottery
+          players={state.players}
+          onComplete={(order) => {
+            // Cập nhật thứ tự vào state với kết quả từ lottery
+            shuffleTurnOrder(order);
+            // Đóng modal
+            setShowLottery(false);
+          }}
+          onClose={() => setShowLottery(false)}
+        />
+      )}
     </div>
   );
 }

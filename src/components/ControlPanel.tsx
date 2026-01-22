@@ -11,11 +11,36 @@ function DiceFace3D({ value, rolling }: { value: number; rolling: boolean }) {
   const dots = (r: number, c: number) => {
     const patterns: Record<number, Array<[number, number]>> = {
       1: [[2, 2]],
-      2: [[1, 1], [3, 3]],
-      3: [[1, 1], [2, 2], [3, 3]],
-      4: [[1, 1], [1, 3], [3, 1], [3, 3]],
-      5: [[1, 1], [1, 3], [2, 2], [3, 1], [3, 3]],
-      6: [[1, 1], [2, 1], [3, 1], [1, 3], [2, 3], [3, 3]],
+      2: [
+        [1, 1],
+        [3, 3],
+      ],
+      3: [
+        [1, 1],
+        [2, 2],
+        [3, 3],
+      ],
+      4: [
+        [1, 1],
+        [1, 3],
+        [3, 1],
+        [3, 3],
+      ],
+      5: [
+        [1, 1],
+        [1, 3],
+        [2, 2],
+        [3, 1],
+        [3, 3],
+      ],
+      6: [
+        [1, 1],
+        [2, 1],
+        [3, 1],
+        [1, 3],
+        [2, 3],
+        [3, 3],
+      ],
     };
     return (patterns[value] ?? []).some(([rr, cc]) => rr === r && cc === c);
   };
@@ -57,12 +82,19 @@ function DiceFace3D({ value, rolling }: { value: number; rolling: boolean }) {
 }
 
 export function ControlPanel() {
-  const { state, tiles, rollDice, openQuestion, endTurn, clearMessage, reset } = useGame();
+  const { state, tiles, rollDice, openQuestion, endTurn, clearMessage, reset } =
+    useGame();
   const { state: session } = useSession();
   const current = state.players[state.currentPlayerIndex];
   const tile = tiles[current.position];
-  const sessionPlayer = session.players[state.currentPlayerIndex] ?? session.players[0];
-  const displayName = current.isHuman ? sessionPlayer.name || current.name : current.name;
+
+  // Lấy player ID từ current player (ví dụ: PLAYER_0, PLAYER_1...)
+  // Trích xuất số cuối cùng để tìm trong session
+  const playerIdNumber = parseInt(current.id.split("_")[1] || "0", 10);
+  const sessionPlayer = session.players[playerIdNumber] ?? session.players[0];
+  const displayName = current.isHuman
+    ? sessionPlayer.name || current.name
+    : current.name;
 
   const [isRolling, setIsRolling] = useState(false);
   const [preview, setPreview] = useState<{ a: number; b: number } | null>(null);
@@ -77,7 +109,9 @@ export function ControlPanel() {
   }, []);
 
   const reachedTarget = state.players.some((p) => p.laps >= TARGET_LAPS);
-  const isOver = (state.turn >= MAX_TURNS && state.currentPlayerIndex === 0) || reachedTarget;
+  const isOver =
+    (state.turn >= MAX_TURNS && state.currentPlayerIndex === 0) ||
+    reachedTarget;
   const hasActed = state.hasActedThisTurn && current.isHuman;
   const isQuestionOpen = state.activeModal.kind === "question";
 
@@ -89,24 +123,41 @@ export function ControlPanel() {
       return;
     }
 
+    // Play dice roll sound (board game dice roll)
+    const audio = new Audio(
+      "https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3",
+    );
+    audio.volume = 0.7;
+    audio.play().catch(() => {
+      // Silently fail if autoplay restricted
+    });
+
     setIsRolling(true);
-    setPreview({ a: 1 + Math.floor(Math.random() * 6), b: 1 + Math.floor(Math.random() * 6) });
+    setPreview({
+      a: 1 + Math.floor(Math.random() * 6),
+      b: 1 + Math.floor(Math.random() * 6),
+    });
 
+    // Dice rolling animation - slower for suspense
     intervalRef.current = window.setInterval(() => {
-      setPreview({ a: 1 + Math.floor(Math.random() * 6), b: 1 + Math.floor(Math.random() * 6) });
-    }, 90);
+      setPreview({
+        a: 1 + Math.floor(Math.random() * 6),
+        b: 1 + Math.floor(Math.random() * 6),
+      });
+    }, 120);
 
+    // Show result after 1.5 seconds for more suspense
     timerRef.current = window.setTimeout(() => {
       if (intervalRef.current) window.clearInterval(intervalRef.current);
       intervalRef.current = null;
       rollDice();
       setIsRolling(false);
       setPreview(null);
-    }, 800);
+    }, 1500);
   }, [isRolling, openQuestion, rollDice, state.diceAllowance]);
 
-  const shownA = isRolling ? preview?.a ?? 1 : state.dice?.a ?? 1;
-  const shownB = isRolling ? preview?.b ?? 1 : state.dice?.b ?? 1;
+  const shownA = isRolling ? (preview?.a ?? 1) : (state.dice?.a ?? 1);
+  const shownB = isRolling ? (preview?.b ?? 1) : (state.dice?.b ?? 1);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -131,7 +182,9 @@ export function ControlPanel() {
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span className="text-lg">🎮</span>
-            <span className="text-xs font-bold uppercase tracking-wide text-indigo-600">Lượt hiện tại</span>
+            <span className="text-xs font-bold uppercase tracking-wide text-indigo-600">
+              Lượt hiện tại
+            </span>
           </div>
           <div className="mt-2 flex items-center gap-3">
             {current.isHuman && (
@@ -147,9 +200,14 @@ export function ControlPanel() {
               </span>
             )}
             <div>
-              <div className="truncate text-lg font-bold text-slate-800">{displayName}</div>
+              <div className="truncate text-lg font-bold text-slate-800">
+                {displayName}
+              </div>
               <div className="text-xs text-slate-500">
-                Ô: <span className="font-semibold text-indigo-600">{tile.name}</span>
+                Ô:{" "}
+                <span className="font-semibold text-indigo-600">
+                  {tile.name}
+                </span>
               </div>
             </div>
           </div>
@@ -175,7 +233,9 @@ export function ControlPanel() {
                   <span className="text-slate-500">+</span>
                   <span className="text-amber-400">{state.dice.b}</span>
                   <span className="text-slate-500">=</span>
-                  <span className="rounded-lg bg-amber-500 px-2 py-0.5 text-slate-900">{state.dice.total}</span>
+                  <span className="rounded-lg bg-amber-500 px-2 py-0.5 text-slate-900">
+                    {state.dice.total}
+                  </span>
                 </div>
               </div>
             ) : (
@@ -186,7 +246,11 @@ export function ControlPanel() {
                     <span className="flex items-center gap-2">
                       <Sparkles className="h-4 w-4 text-emerald-400" />
                       <span>
-                        Được gieo <span className="font-bold text-emerald-400">{state.diceAllowance}</span> xúc xắc!
+                        Được gieo{" "}
+                        <span className="font-bold text-emerald-400">
+                          {state.diceAllowance}
+                        </span>{" "}
+                        xúc xắc!
                       </span>
                     </span>
                   ) : (
@@ -219,7 +283,11 @@ export function ControlPanel() {
               : "bg-amber-100 text-amber-700 ring-2 ring-amber-500/30 animate-pulse",
           ].join(" ")}
         >
-          <span className={state.diceAllowance ? "text-emerald-500" : "text-amber-500"}>
+          <span
+            className={
+              state.diceAllowance ? "text-emerald-500" : "text-amber-500"
+            }
+          >
             {state.diceAllowance ? "✓" : "1"}
           </span>
           Trả lời
@@ -289,7 +357,11 @@ export function ControlPanel() {
           ].join(" ")}
         >
           <Dices className="h-5 w-5 transition-transform group-hover:rotate-12" />
-          {isRolling ? "Đang gieo..." : state.diceAllowance ? "Gieo xúc xắc!" : "Trả lời để gieo"}
+          {isRolling
+            ? "Đang gieo..."
+            : state.diceAllowance
+              ? "Gieo xúc xắc!"
+              : "Trả lời để gieo"}
           {/* Shine effect */}
           <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
         </button>
@@ -315,11 +387,15 @@ export function ControlPanel() {
       {/* Keyboard Shortcuts */}
       <div className="mt-3 flex justify-center gap-4 text-[10px] text-slate-400">
         <span className="flex items-center gap-1">
-          <kbd className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-slate-600">R</kbd>
+          <kbd className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-slate-600">
+            R
+          </kbd>
           Gieo
         </span>
         <span className="flex items-center gap-1">
-          <kbd className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-slate-600">E</kbd>
+          <kbd className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-slate-600">
+            E
+          </kbd>
           Kết thúc
         </span>
       </div>

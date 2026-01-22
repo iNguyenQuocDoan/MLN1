@@ -3,6 +3,7 @@
 import React, {
   createContext,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -16,9 +17,10 @@ export type SessionPlayer = {
 };
 
 type SessionState = {
-  playerCount: number; // 1..4
+  playerCount: number; // 1..6
   players: SessionPlayer[];
-  activePlayerId: number; // 0..3
+  activePlayerId: number; // 0..5
+  turnOrder: number[] | null; // Thứ tự chơi sau khi xổ số, ví dụ: [2, 0, 3, 1] có nghĩa là player 2 đi trước
 };
 
 type SessionApi = {
@@ -31,6 +33,7 @@ type SessionApi = {
   addScore: (id: number, delta: number) => void;
   resetScores: () => void;
   resetAll: () => void;
+  shuffleTurnOrder: (customOrder?: number[]) => void; // Xổ số thứ tự chơi ngẫu nhiên
 };
 
 const STORAGE_KEY = "trieth-session-v1";
@@ -81,7 +84,8 @@ function loadFromStorage(): SessionState | null {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<SessionState>;
-    if (!parsed.players || typeof parsed.activePlayerId !== "number") return null;
+    if (!parsed.players || typeof parsed.activePlayerId !== "number")
+      return null;
     const count =
       typeof parsed.playerCount === "number"
         ? Math.min(6, Math.max(1, parsed.playerCount))
@@ -91,31 +95,42 @@ function loadFromStorage(): SessionState | null {
       playerCount: count,
       players: parsed.players.map((p, i) => buildPlayer(i, p)),
       activePlayerId: Math.min(count - 1, Math.max(0, parsed.activePlayerId)),
+      turnOrder: parsed.turnOrder ?? null,
     };
   } catch {
     return null;
   }
 }
 
-export function SessionProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<SessionState>(() => {
-    return (
-      loadFromStorage() ?? {
-        playerCount: 4,
-        players: defaultPlayers(4),
-        activePlayerId: 0,
-      }
-    );
-  });
+const DEFAULT_STATE: SessionState = {
+  playerCount: 4,
+  players: defaultPlayers(4),
+  activePlayerId: 0,
+  turnOrder: null,
+};
 
-  // Persist to localStorage
-  React.useEffect(() => {
+export function SessionProvider({ children }: { children: React.ReactNode }) {
+  const [state, setState] = useState<SessionState>(DEFAULT_STATE);
+  const [hydrated, setHydrated] = useState(false);
+
+  // Load from localStorage after mount to avoid hydration mismatch
+  useEffect(() => {
+    const stored = loadFromStorage();
+    if (stored) {
+      setState(stored);
+    }
+    setHydrated(true);
+  }, []);
+
+  // Persist to localStorage (only after hydration)
+  useEffect(() => {
+    if (!hydrated) return;
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch {
       // ignore
     }
-  }, [state]);
+  }, [state, hydrated]);
 
   const api = useMemo<SessionApi>(
     () => ({
@@ -127,6 +142,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
           playerCount: validCount,
           players: defaultPlayers(validCount),
           activePlayerId: Math.min(validCount - 1, s.activePlayerId),
+          turnOrder: null, // Reset thứ tự khi thay đổi số người
         }));
       },
       setPlayerName: (id, name) =>
@@ -166,6 +182,20 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
           playerCount: 4,
           players: defaultPlayers(4),
           activePlayerId: 0,
+          turnOrder: null,
+        }),
+      shuffleTurnOrder: (customOrder?: number[]) =>
+        setState((s) => {
+          if (customOrder) {
+            return { ...s, turnOrder: customOrder };
+          }
+          // Fisher-Yates shuffle
+          const order = Array.from({ length: s.playerCount }, (_, i) => i);
+          for (let i = order.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [order[i], order[j]] = [order[j], order[i]];
+          }
+          return { ...s, turnOrder: order };
         }),
     }),
     [state],

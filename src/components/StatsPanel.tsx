@@ -6,14 +6,20 @@ import { useSession } from "@/context/SessionContext";
 import { TARGET_LAPS } from "@/lib/gameData";
 import { Trophy } from "lucide-react";
 
-export function StatsPanel(props: { players: Player[]; owned: OwnedProperty[]; tiles: Tile[] }) {
+export function StatsPanel(props: {
+  players: Player[];
+  owned: OwnedProperty[];
+  tiles: Tile[];
+}) {
   const { players } = props;
   const { state: session } = useSession();
 
   const rows = useMemo(() => {
     return [...players]
       .map((p, idx) => {
-        const s = session.players[idx] ?? session.players[0];
+        // Lấy player ID number từ p.id (ví dụ: PLAYER_0 -> 0)
+        const playerIdNumber = parseInt(p.id.split("_")[1] || "0", 10);
+        const s = session.players[playerIdNumber] ?? session.players[0];
         return {
           id: p.id,
           name: s?.name || p.name,
@@ -72,7 +78,9 @@ export function StatsPanel(props: { players: Player[]; owned: OwnedProperty[]; t
                   <span
                     className={[
                       "flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold shadow-md transition-transform group-hover:scale-105",
-                      idx === 0 ? "ring-2 ring-amber-400" : "ring-2 ring-slate-200",
+                      idx === 0
+                        ? "ring-2 ring-amber-400"
+                        : "ring-2 ring-slate-200",
                     ].join(" ")}
                     style={{
                       backgroundColor: r.color ?? "#e2e8f0",
@@ -88,7 +96,9 @@ export function StatsPanel(props: { players: Player[]; owned: OwnedProperty[]; t
 
                 {/* Info */}
                 <div className="min-w-0">
-                  <div className="truncate text-sm font-bold text-slate-800">{r.name}</div>
+                  <div className="truncate text-sm font-bold text-slate-800">
+                    {r.name}
+                  </div>
                   <div className="flex items-center gap-2 text-[10px] text-slate-500">
                     <span>Ô {r.pos}</span>
                     <span>•</span>
@@ -106,10 +116,12 @@ export function StatsPanel(props: { players: Player[]; owned: OwnedProperty[]; t
 
               {/* Laps */}
               <div className="text-right">
-                <div className={[
-                  "text-xl font-black",
-                  idx === 0 ? "text-amber-600" : "text-indigo-600",
-                ].join(" ")}>
+                <div
+                  className={[
+                    "text-xl font-black",
+                    idx === 0 ? "text-amber-600" : "text-indigo-600",
+                  ].join(" ")}
+                >
                   {r.laps}
                 </div>
                 <div className="text-[10px] text-slate-400">vòng</div>
@@ -126,7 +138,9 @@ export function StatsPanel(props: { players: Player[]; owned: OwnedProperty[]; t
                       ? "bg-gradient-to-r from-amber-400 to-yellow-500"
                       : "bg-gradient-to-r from-indigo-400 to-purple-500",
                   ].join(" ")}
-                  style={{ width: `${Math.min(100, (r.laps / TARGET_LAPS) * 100)}%` }}
+                  style={{
+                    width: `${Math.min(100, (r.laps / TARGET_LAPS) * 100)}%`,
+                  }}
                 />
               </div>
               <div className="mt-0.5 text-[9px] text-slate-400">

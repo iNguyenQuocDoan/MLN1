@@ -1,29 +1,55 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { Question } from "@/lib/questions";
 import { useGame } from "@/context/GameContext";
-import { Sparkles, X } from "lucide-react";
+import { Sparkles, X, Clock } from "lucide-react";
+
+const QUESTION_TIME_LIMIT = 15; // seconds
 
 // Option button colors
 const optionColors = [
-  { bg: "from-red-500 to-rose-600", hover: "hover:from-red-600 hover:to-rose-700", light: "bg-red-100 text-red-700" },
-  { bg: "from-blue-500 to-indigo-600", hover: "hover:from-blue-600 hover:to-indigo-700", light: "bg-blue-100 text-blue-700" },
-  { bg: "from-amber-500 to-orange-600", hover: "hover:from-amber-600 hover:to-orange-700", light: "bg-amber-100 text-amber-700" },
-  { bg: "from-emerald-500 to-teal-600", hover: "hover:from-emerald-600 hover:to-teal-700", light: "bg-emerald-100 text-emerald-700" },
+  {
+    bg: "from-red-500 to-rose-600",
+    hover: "hover:from-red-600 hover:to-rose-700",
+    light: "bg-red-100 text-red-700",
+  },
+  {
+    bg: "from-blue-500 to-indigo-600",
+    hover: "hover:from-blue-600 hover:to-indigo-700",
+    light: "bg-blue-100 text-blue-700",
+  },
+  {
+    bg: "from-amber-500 to-orange-600",
+    hover: "hover:from-amber-600 hover:to-orange-700",
+    light: "bg-amber-100 text-amber-700",
+  },
+  {
+    bg: "from-emerald-500 to-teal-600",
+    hover: "hover:from-emerald-600 hover:to-teal-700",
+    light: "bg-emerald-100 text-emerald-700",
+  },
 ];
 
 const optionLabels = ["A", "B", "C", "D"];
 const CONFETTI_EMOJIS = ["🎉", "⭐", "✨", "🌟", "💫", "🎊", "🏆"] as const;
-// Sound effect for wrong answers
-// Priority: local file > fallback URL
-const WRONG_ANSWER_SOUND_SRC = "/sounds/wrong.mp3";
-// Fallback: public sound effect (Mixkit - free to use)
-const WRONG_ANSWER_SOUND_FALLBACK = "https://cdn.jsdelivr.net/gh/remixicon/remixicon@master/sounds/error.mp3";
+// Sound effects URLs (using Mixkit CDN directly)
+const WRONG_ANSWER_SOUND =
+  "https://assets.mixkit.co/active_storage/sfx/2955/2955-preview.mp3";
+const CORRECT_ANSWER_SOUND =
+  "https://assets.mixkit.co/active_storage/sfx/2018/2018-preview.mp3";
+const TIMEOUT_SOUND =
+  "https://assets.mixkit.co/active_storage/sfx/2964/2964-preview.mp3";
 
 export function QuestionModal(props: { question: Question }) {
   const { question } = props;
-  const { answerQuestion, closeModal } = useGame();
+  const { answerQuestion, answerTimeout, closeModal } = useGame();
   const [picked, setPicked] = useState<number | null>(null);
   const [reveal, setReveal] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
@@ -32,15 +58,61 @@ export function QuestionModal(props: { question: Question }) {
   const [attemptKey, setAttemptKey] = useState<number>(0);
   const lastPlayedAttemptRef = useRef<number>(0);
   const [canContinue, setCanContinue] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(QUESTION_TIME_LIMIT);
+  const [isTimedOut, setIsTimedOut] = useState(false);
+
+  // Shuffle options để tránh ghi nhớ vị trí đáp án
+  const shuffledQuestion = useMemo(() => {
+    const indexMap = question.options.map((_, idx) => idx);
+    // Fisher-Yates shuffle
+    for (let i = indexMap.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [indexMap[i], indexMap[j]] = [indexMap[j], indexMap[i]];
+    }
+    const shuffledOptions = indexMap.map((idx) => question.options[idx]);
+    const newAnswerIndex = indexMap.indexOf(question.answerIndex);
+    return {
+      ...question,
+      options: shuffledOptions,
+      answerIndex: newAnswerIndex,
+      originalIndexMap: indexMap,
+    };
+  }, [question]);
 
   const isCorrect = useMemo(
-    () => (picked === null ? null : picked === question.answerIndex),
-    [picked, question.answerIndex]
+    () => (picked === null ? null : picked === shuffledQuestion.answerIndex),
+    [picked, shuffledQuestion.answerIndex],
   );
+
+  // Countdown timer
+  useEffect(() => {
+    if (reveal || isTimedOut) return; // Stop timer when answered or timed out
+
+    if (timeLeft <= 0) {
+      setIsTimedOut(true);
+      setReveal(true);
+      setAttemptKey(Date.now());
+      setShakeWrong(true);
+      setTimeout(() => setShakeWrong(false), 500);
+      setTimeout(() => setCanContinue(true), 800);
+      return;
+    }
+
+    const timer = setInterval(() => {
+      setTimeLeft((t) => t - 1);
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [timeLeft, reveal, isTimedOut]);
+
+  // Handle timeout finalization
+  const handleTimeoutClose = useCallback(() => {
+    answerTimeout();
+  }, [answerTimeout]);
 
   const submit = () => {
     if (picked === null) return;
-    const correct = picked === question.answerIndex;
+    const correct = picked === shuffledQuestion.answerIndex;
 
     setReveal(true);
     setAttemptKey(Date.now());
@@ -62,13 +134,35 @@ export function QuestionModal(props: { question: Question }) {
   };
 
   const finalizeAndClose = () => {
+    if (isTimedOut) {
+      answerTimeout();
+      return;
+    }
     if (picked === null) {
       closeModal();
       return;
     }
-    answerQuestion(picked === question.answerIndex);
+    answerQuestion(picked === shuffledQuestion.answerIndex);
   };
 
+  // Helper function to play sound
+  const playSound = (src: string): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      try {
+        const audio = new Audio(src);
+        audio.volume = 0.7;
+        audio.onerror = () => reject(new Error("Audio load failed"));
+        audio.oncanplaythrough = () => {
+          void audio.play().then(resolve).catch(reject);
+        };
+        audio.load();
+      } catch (err) {
+        reject(err);
+      }
+    });
+  };
+
+  // Play sound when answer is wrong
   useEffect(() => {
     if (!reveal) return;
     if (isCorrect !== false) return;
@@ -76,31 +170,35 @@ export function QuestionModal(props: { question: Question }) {
     if (lastPlayedAttemptRef.current === attemptKey) return;
     lastPlayedAttemptRef.current = attemptKey;
 
-    // Play a short sound when the answer is wrong.
-    const playSound = async (src: string): Promise<void> => {
-      return new Promise((resolve, reject) => {
-        try {
-          const audio = new Audio(src);
-          audio.volume = 0.7;
-          audio.onerror = () => reject(new Error("Audio load failed"));
-          audio.oncanplaythrough = () => {
-            void audio.play().then(resolve).catch(reject);
-          };
-          audio.load();
-        } catch (err) {
-          reject(err);
-        }
-      });
-    };
-
-    // Try local file first, fallback to public URL if not found
-    playSound(WRONG_ANSWER_SOUND_SRC).catch(() => {
-      // If local file fails, try fallback URL
-      playSound(WRONG_ANSWER_SOUND_FALLBACK).catch(() => {
-        // Silently fail if both fail (autoplay restrictions / unsupported)
-      });
+    playSound(WRONG_ANSWER_SOUND).catch(() => {
+      // Silently fail if autoplay restricted
     });
   }, [attemptKey, isCorrect, reveal]);
+
+  // Play sound when answer is correct
+  useEffect(() => {
+    if (!reveal) return;
+    if (isCorrect !== true) return;
+    if (!attemptKey) return;
+    if (lastPlayedAttemptRef.current === attemptKey) return;
+    lastPlayedAttemptRef.current = attemptKey;
+
+    playSound(CORRECT_ANSWER_SOUND).catch(() => {
+      // Silently fail if autoplay restricted
+    });
+  }, [attemptKey, isCorrect, reveal]);
+
+  // Play sound when timeout
+  useEffect(() => {
+    if (!isTimedOut) return;
+    if (!attemptKey) return;
+    if (lastPlayedAttemptRef.current === attemptKey) return;
+    lastPlayedAttemptRef.current = attemptKey;
+
+    playSound(TIMEOUT_SOUND).catch(() => {
+      // Silently fail if autoplay restricted
+    });
+  }, [attemptKey, isTimedOut]);
 
   // Confetti particles for celebration
   const confettiParticles = useMemo(() => {
@@ -117,8 +215,15 @@ export function QuestionModal(props: { question: Question }) {
       const left = `${next() * 100}%`;
       const top = `${next() * 100}%`;
       const animationDelay = `${next() * 0.5}s`;
-      const emoji = CONFETTI_EMOJIS[Math.floor(next() * CONFETTI_EMOJIS.length)];
-      return { key: `${celebrationSeed}-${i}`, left, top, animationDelay, emoji };
+      const emoji =
+        CONFETTI_EMOJIS[Math.floor(next() * CONFETTI_EMOJIS.length)];
+      return {
+        key: `${celebrationSeed}-${i}`,
+        left,
+        top,
+        animationDelay,
+        emoji,
+      };
     });
   }, [celebrationSeed, showCelebration]);
 
@@ -170,14 +275,32 @@ export function QuestionModal(props: { question: Question }) {
                 <span className="rounded-full bg-red-500/20 px-2 py-1 text-[10px] font-semibold text-red-300 ring-1 ring-red-500/30">
                   ✗ Sai = 1 xúc xắc
                 </span>
+                {/* Countdown Timer */}
+                <span
+                  className={[
+                    "inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold ring-1",
+                    isTimedOut
+                      ? "bg-red-500/30 text-red-300 ring-red-500/50"
+                      : timeLeft <= 5
+                        ? "bg-red-500/20 text-red-300 ring-red-500/30 animate-pulse"
+                        : timeLeft <= 10
+                          ? "bg-amber-500/20 text-amber-300 ring-amber-500/30"
+                          : "bg-white/10 text-white ring-white/20",
+                  ].join(" ")}
+                >
+                  <Clock className="h-3 w-3" />
+                  {isTimedOut ? "Hết giờ!" : `${timeLeft}s`}
+                </span>
               </div>
 
               {/* Question */}
-              <h3 className="mt-3 text-xl font-bold leading-snug text-white">{question.prompt}</h3>
+              <h3 className="mt-3 text-xl font-bold leading-snug text-white">
+                {shuffledQuestion.prompt}
+              </h3>
 
               {/* Meta */}
               <div className="mt-2 flex flex-wrap gap-2">
-                {question.tags.map((t) => (
+                {shuffledQuestion.tags.map((t) => (
                   <span
                     key={t}
                     className="rounded-full bg-white/10 px-2 py-1 text-xs text-purple-200"
@@ -186,7 +309,7 @@ export function QuestionModal(props: { question: Question }) {
                   </span>
                 ))}
                 <span className="rounded-full bg-indigo-500/50 px-2 py-1 text-xs font-semibold text-white">
-                  Level {question.level}
+                  Level {shuffledQuestion.level}
                 </span>
               </div>
             </div>
@@ -203,10 +326,11 @@ export function QuestionModal(props: { question: Question }) {
         {/* Options */}
         <div className="p-5">
           <div className="grid gap-3 sm:grid-cols-2">
-            {question.options.map((op, idx) => {
+            {shuffledQuestion.options.map((op, idx) => {
               const selected = picked === idx;
-              const correct = reveal && idx === question.answerIndex;
-              const wrong = reveal && selected && idx !== question.answerIndex;
+              const correct = reveal && idx === shuffledQuestion.answerIndex;
+              const wrong =
+                reveal && selected && idx !== shuffledQuestion.answerIndex;
               const colors = optionColors[idx];
 
               return (
@@ -233,9 +357,7 @@ export function QuestionModal(props: { question: Question }) {
                       ? "bg-gradient-to-br from-red-600 to-rose-700 border-red-400 opacity-70"
                       : "",
                     // Disabled non-selected
-                    reveal && !selected && !correct
-                      ? "opacity-40"
-                      : "",
+                    reveal && !selected && !correct ? "opacity-40" : "",
                   ].join(" ")}
                 >
                   <div className="flex items-start gap-3">
@@ -267,7 +389,11 @@ export function QuestionModal(props: { question: Question }) {
           {/* Action Bar */}
           <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
             <div className="text-sm font-medium text-white/80">
-              {picked === null ? (
+              {isTimedOut ? (
+                <span className="flex items-center gap-2 text-red-300">
+                  <span>⏰</span> HẾT GIỜ! Không được gieo xúc xắc!
+                </span>
+              ) : picked === null ? (
                 <span className="flex items-center gap-2">
                   <span>👆</span> Chọn một đáp án
                 </span>
@@ -297,7 +423,7 @@ export function QuestionModal(props: { question: Question }) {
               </button>
               <button
                 onClick={submit}
-                disabled={picked === null || reveal}
+                disabled={picked === null || reveal || isTimedOut}
                 className={[
                   "rounded-xl px-6 py-2 text-sm font-bold transition-all",
                   "bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-900",
@@ -330,7 +456,7 @@ export function QuestionModal(props: { question: Question }) {
                 <span>💡</span> Giải thích
               </div>
               <div className="mt-2 text-sm leading-relaxed text-white/80">
-                {question.explain}
+                {shuffledQuestion.explain}
               </div>
             </div>
           )}

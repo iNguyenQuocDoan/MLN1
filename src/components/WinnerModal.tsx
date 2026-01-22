@@ -17,7 +17,18 @@ type RankedPlayer = {
   wrong: number;
 };
 
-const CONFETTI_EMOJIS = ["🎉", "⭐", "✨", "🌟", "💫", "🎊", "🏆", "👑", "🥇", "🎯"] as const;
+const CONFETTI_EMOJIS = [
+  "🎉",
+  "⭐",
+  "✨",
+  "🌟",
+  "💫",
+  "🎊",
+  "🏆",
+  "👑",
+  "🥇",
+  "🎯",
+] as const;
 
 export function WinnerModal({ ranking }: { ranking: RankedPlayer[] }) {
   const { reset } = useGame();
@@ -26,6 +37,15 @@ export function WinnerModal({ ranking }: { ranking: RankedPlayer[] }) {
   const [confettiSeed] = useState<number>(() => Date.now());
 
   useEffect(() => {
+    // Play winner sound (using Mixkit CDN directly - victory/success fanfare)
+    const audio = new Audio(
+      "https://assets.mixkit.co/active_storage/sfx/2020/2020-preview.mp3",
+    );
+    audio.volume = 0.8;
+    audio.play().catch(() => {
+      // Audio autoplay may be blocked by browser
+    });
+
     // Trigger entrance animation
     setTimeout(() => setAnimateIn(true), 100);
     // Stop confetti after a while
@@ -48,7 +68,8 @@ export function WinnerModal({ ranking }: { ranking: RankedPlayer[] }) {
       const left = `${next() * 100}%`;
       const duration = 2 + next() * 3;
       const delay = next() * 2;
-      const emoji = CONFETTI_EMOJIS[Math.floor(next() * CONFETTI_EMOJIS.length)];
+      const emoji =
+        CONFETTI_EMOJIS[Math.floor(next() * CONFETTI_EMOJIS.length)];
       return {
         key: `${confettiSeed}-${i}`,
         left,
@@ -161,18 +182,26 @@ export function WinnerModal({ ranking }: { ranking: RankedPlayer[] }) {
                 <div className="text-sm font-semibold uppercase tracking-wide text-amber-400">
                   🏆 Quán quân
                 </div>
-                <div className="mt-1 text-3xl font-black text-white">{winner.name}</div>
+                <div className="mt-1 text-3xl font-black text-white">
+                  {winner.name}
+                </div>
                 <div className="mt-3 flex flex-wrap gap-3">
                   <div className="rounded-lg bg-white/10 px-3 py-1.5">
-                    <div className="text-2xl font-black text-amber-300">{winner.laps}</div>
+                    <div className="text-2xl font-black text-amber-300">
+                      {winner.laps}
+                    </div>
                     <div className="text-[10px] text-slate-400">vòng</div>
                   </div>
                   <div className="rounded-lg bg-white/10 px-3 py-1.5">
-                    <div className="text-2xl font-black text-emerald-400">{winner.correct}</div>
+                    <div className="text-2xl font-black text-emerald-400">
+                      {winner.correct}
+                    </div>
                     <div className="text-[10px] text-slate-400">đúng</div>
                   </div>
                   <div className="rounded-lg bg-white/10 px-3 py-1.5">
-                    <div className="text-2xl font-black text-red-400">{winner.wrong}</div>
+                    <div className="text-2xl font-black text-red-400">
+                      {winner.wrong}
+                    </div>
                     <div className="text-[10px] text-slate-400">sai</div>
                   </div>
                 </div>
@@ -216,15 +245,23 @@ export function WinnerModal({ ranking }: { ranking: RankedPlayer[] }) {
                   >
                     {player.avatar ?? player.name.slice(0, 1)}
                   </span>
-                  <span className="font-semibold text-white">{player.name}</span>
+                  <span className="font-semibold text-white">
+                    {player.name}
+                  </span>
                 </div>
 
                 <div className="flex items-center gap-4 text-sm">
                   <span className="text-slate-400">
-                    <span className="font-bold text-emerald-400">{player.correct}</span> ✓
+                    <span className="font-bold text-emerald-400">
+                      {player.correct}
+                    </span>{" "}
+                    ✓
                   </span>
                   <span className="text-slate-400">
-                    <span className="font-bold text-red-400">{player.wrong}</span> ✗
+                    <span className="font-bold text-red-400">
+                      {player.wrong}
+                    </span>{" "}
+                    ✗
                   </span>
                   <span className="min-w-[60px] rounded-lg bg-white/10 px-2 py-1 text-center font-bold text-amber-300">
                     {player.laps} vòng

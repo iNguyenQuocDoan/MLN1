@@ -1,25 +1,54 @@
 "use client";
 
-import { useEffect } from "react";
+import { useState } from "react";
 import { GameProvider } from "@/context/GameContext";
 import { Board } from "@/components/Board";
 import { PlayerSetup } from "@/components/PlayerSetup";
-import { Sparkles, UsersRound } from "lucide-react";
+import { Sparkles, UsersRound, Play } from "lucide-react";
 
 export default function GamePage() {
-  useEffect(() => {
-    const enterFs = async () => {
-      try {
-        await document.documentElement.requestFullscreen();
-      } catch {
-        // ignore if blocked; user can press F11
-      }
-    };
-    enterFs();
-  }, []);
+  const [started, setStarted] = useState(false);
+
+  const handleStart = async () => {
+    setStarted(true);
+    try {
+      await document.documentElement.requestFullscreen();
+    } catch {
+      // ignore if blocked; user can press F11
+    }
+  };
+
+  if (!started) {
+    return (
+      <div className="min-h-screen bg-linear-to-b from-slate-900 to-slate-800 text-white flex items-center justify-center">
+        <div className="text-center space-y-8">
+          <h1 className="text-5xl font-bold">Marx-opoly</h1>
+          <p className="text-slate-300 text-lg">Game cờ tỷ phú phiên bản triết học</p>
+          <button
+            type="button"
+            onClick={handleStart}
+            className="group relative inline-flex items-center gap-3 rounded-full bg-linear-to-r from-blue-500 to-purple-600 px-8 py-4 text-xl font-semibold text-white shadow-lg shadow-blue-500/30 transition-all hover:scale-105 hover:shadow-xl hover:shadow-blue-500/40"
+          >
+            <Play className="h-6 w-6 fill-current" />
+            Bắt đầu chơi
+          </button>
+          <p className="text-slate-400 text-sm">Nhấn để bật nhạc nền và vào game</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 text-white">
+    <div className="min-h-screen bg-linear-to-b from-slate-900 to-slate-800 text-white">
+      {/* Background music - hidden YouTube player */}
+      <iframe
+        className="hidden"
+        width="0"
+        height="0"
+        src="https://www.youtube.com/embed/4w3VqzwJ1j4?si=C7kqQcyghEqyPioq&autoplay=1&loop=1&playlist=4w3VqzwJ1j4"
+        title="Background music"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+      />
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-10">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-2">

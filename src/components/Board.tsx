@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import type { OwnedProperty, Player, Tile as TileT } from "@/lib/types";
 import { useGame } from "@/context/GameContext";
 import { useSession } from "@/context/SessionContext";
@@ -12,6 +12,7 @@ import { LogPanel } from "@/components/LogPanel";
 import { QuestionModal } from "@/components/QuestionModal";
 import { TileDetail } from "@/components/TileDetail";
 import { WinnerModal } from "@/components/WinnerModal";
+import { LuckyModal } from "@/components/LuckyModal";
 import { MAX_TURNS, TARGET_LAPS } from "@/lib/gameData";
 import { Crown, Trophy, Sparkles } from "lucide-react";
 
@@ -31,7 +32,13 @@ function keyOf(c: Coord) {
 }
 
 // Center display component for the 9 empty cells
-function BoardCenter({ turn, targetLaps }: { turn: number; targetLaps: number }) {
+function BoardCenter({
+  turn,
+  targetLaps,
+}: {
+  turn: number;
+  targetLaps: number;
+}) {
   return (
     <div className="flex h-full w-full flex-col items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-900/90 via-purple-900/90 to-indigo-900/90 p-3 text-white shadow-inner">
       {/* Game Logo */}
@@ -51,7 +58,9 @@ function BoardCenter({ turn, targetLaps }: { turn: number; targetLaps: number })
           <div className="text-[10px] text-white/60">Lượt</div>
         </div>
         <div className="rounded-lg bg-white/10 px-2 py-1.5 text-center backdrop-blur">
-          <div className="text-lg font-black text-emerald-300">{targetLaps}</div>
+          <div className="text-lg font-black text-emerald-300">
+            {targetLaps}
+          </div>
           <div className="text-[10px] text-white/60">Mục tiêu</div>
         </div>
       </div>
@@ -59,7 +68,9 @@ function BoardCenter({ turn, targetLaps }: { turn: number; targetLaps: number })
       {/* Decorative Element */}
       <div className="mt-2 flex items-center gap-1 text-amber-400/50">
         <Sparkles className="h-4 w-4" />
-        <span className="text-[10px] font-semibold uppercase tracking-wider">Học trước chơi sau</span>
+        <span className="text-[10px] font-semibold uppercase tracking-wider">
+          Học trước chơi sau
+        </span>
         <Sparkles className="h-4 w-4" />
       </div>
     </div>
@@ -71,7 +82,9 @@ export function Board() {
   const { state: session } = useSession();
   const coords = useMemo(() => perimeterCoords5x5(), []);
   const [manualFocusIndex, setManualFocusIndex] = useState<number | null>(null);
-  const focusIndex = manualFocusIndex ?? state.players[state.currentPlayerIndex].position;
+  const focusIndex =
+    manualFocusIndex ?? state.players[state.currentPlayerIndex].position;
+  const [showWinnerModal, setShowWinnerModal] = useState(false);
 
   const tileByCoord = useMemo(() => {
     const map = new Map<string, TileT>();
@@ -99,7 +112,9 @@ export function Board() {
 
   const tokenCoords = useMemo(() => {
     return state.players.map((p, idx) => {
-      const s = session.players[idx] ?? session.players[0];
+      // Lấy player ID number từ p.id
+      const playerIdNumber = parseInt(p.id.split("_")[1] || "0", 10);
+      const s = session.players[playerIdNumber] ?? session.players[0];
       return {
         id: p.id,
         name: s?.name || p.token.name,
@@ -113,20 +128,31 @@ export function Board() {
   }, [state.players, coords, session.players]);
 
   const flashTile =
-    state.activeModal.kind === "tileFlashcard" ? tiles[state.activeModal.tileIndex] : null;
+    state.activeModal.kind === "tileFlashcard"
+      ? tiles[state.activeModal.tileIndex]
+      : null;
   const flashOwned =
     flashTile && state.activeModal.kind === "tileFlashcard"
-      ? ownedByIndex.get(state.activeModal.tileIndex) ?? null
+      ? (ownedByIndex.get(state.activeModal.tileIndex) ?? null)
       : null;
 
-  const activeQuestion = state.activeModal.kind === "question" ? state.activeModal.question : null;
+  const activeQuestion =
+    state.activeModal.kind === "question" ? state.activeModal.question : null;
+  const activeLuckyEffect =
+    state.activeModal.kind === "lucky" ? state.activeModal.effect : null;
   const reachedTarget = state.players.some((p) => p.laps >= TARGET_LAPS);
-  const isGameOver = (state.turn >= MAX_TURNS && state.currentPlayerIndex === 0 && !state.dice) || reachedTarget;
+  const isGameOver =
+    (state.turn >= MAX_TURNS &&
+      state.currentPlayerIndex === 0 &&
+      !state.dice) ||
+    reachedTarget;
 
   const ranking = useMemo(() => {
     return [...state.players]
       .map((p, idx) => {
-        const s = session.players[idx] ?? session.players[0];
+        // Lấy player ID number từ p.id
+        const playerIdNumber = parseInt(p.id.split("_")[1] || "0", 10);
+        const s = session.players[playerIdNumber] ?? session.players[0];
         return {
           id: p.id,
           name: s?.name || p.name,
@@ -147,6 +173,22 @@ export function Board() {
   const leader = ranking[0] ?? null;
   const liveTop = ranking.slice(0, 4);
 
+  // Delay hiển thị WinnerModal để người chơi nhìn thấy animation
+  useEffect(() => {
+    if (isGameOver && !showWinnerModal) {
+      // Delay 2 giây để người chơi thấy xúc xắc và di chuyển
+      const timer = setTimeout(() => {
+        setShowWinnerModal(true);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+    // Reset showWinnerModal khi game không còn over (đã reset)
+    if (!isGameOver && showWinnerModal) {
+      setShowWinnerModal(false);
+    }
+  }, [isGameOver, showWinnerModal]);
+
+  //
   // Check if a cell is in the center (not on perimeter)
   const isCenterCell = (x: number, y: number) => {
     return x >= 1 && x <= 3 && y >= 1 && y <= 3;
@@ -164,14 +206,16 @@ export function Board() {
             </span>
           </h1>
           <p className="mt-1 text-sm text-slate-200/90">
-            Fast mode: {MAX_TURNS} lượt • Đua tới {TARGET_LAPS} vòng • Nhóm đi được nhiều vòng nhất chiến thắng.
+            Fast mode: {MAX_TURNS} lượt • Đua tới {TARGET_LAPS} vòng • Nhóm đi
+            được nhiều vòng nhất chiến thắng.
           </p>
         </div>
         <div className="flex items-center gap-3">
           <div className="rounded-xl bg-white/10 px-4 py-2 text-center backdrop-blur">
             <div className="text-xs text-slate-300">Lượt</div>
             <div className="text-xl font-black text-white">
-              {state.turn}<span className="text-sm text-slate-400">/{MAX_TURNS}</span>
+              {state.turn}
+              <span className="text-sm text-slate-400">/{MAX_TURNS}</span>
             </div>
           </div>
           {isGameOver && (
@@ -188,7 +232,9 @@ export function Board() {
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Trophy className="h-5 w-5 text-amber-300" />
-            <span className="text-sm font-bold text-white">Xếp hạng trực tiếp</span>
+            <span className="text-sm font-bold text-white">
+              Xếp hạng trực tiếp
+            </span>
           </div>
           <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-bold text-white animate-pulse">
             LIVE
@@ -214,12 +260,18 @@ export function Board() {
                   </span>
                 </div>
                 <div>
-                  <div className="text-[10px] font-bold uppercase tracking-wide text-amber-300">Dẫn đầu</div>
-                  <div className="text-lg font-black text-white">{leader.name}</div>
+                  <div className="text-[10px] font-bold uppercase tracking-wide text-amber-300">
+                    Dẫn đầu
+                  </div>
+                  <div className="text-lg font-black text-white">
+                    {leader.name}
+                  </div>
                 </div>
               </div>
               <div className="text-right">
-                <div className="text-2xl font-black text-amber-300">{leader.laps}</div>
+                <div className="text-2xl font-black text-amber-300">
+                  {leader.laps}
+                </div>
                 <div className="text-xs text-slate-300">vòng</div>
               </div>
             </div>
@@ -227,7 +279,9 @@ export function Board() {
             <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white/10">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all duration-700"
-                style={{ width: `${Math.min(100, (leader.laps / TARGET_LAPS) * 100)}%` }}
+                style={{
+                  width: `${Math.min(100, (leader.laps / TARGET_LAPS) * 100)}%`,
+                }}
               />
             </div>
           </div>
@@ -240,10 +294,15 @@ export function Board() {
               key={r.id}
               className="flex items-center gap-2 rounded-lg bg-white/10 px-3 py-1.5"
             >
-              <span className="text-xs font-bold text-slate-400">#{idx + 2}</span>
+              <span className="text-xs font-bold text-slate-400">
+                #{idx + 2}
+              </span>
               <span
                 className="flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold"
-                style={{ backgroundColor: r.color ?? "#64748b", color: "#0f172a" }}
+                style={{
+                  backgroundColor: r.color ?? "#64748b",
+                  color: "#0f172a",
+                }}
               >
                 {r.avatar ?? r.name.slice(0, 1)}
               </span>
@@ -262,8 +321,12 @@ export function Board() {
               <Trophy className="h-6 w-6 text-slate-900" />
             </div>
             <div>
-              <h2 className="text-xl font-black text-white">KẾT QUẢ CUỐI CÙNG</h2>
-              <p className="text-sm text-slate-300">Xếp hạng theo số vòng hoàn thành</p>
+              <h2 className="text-xl font-black text-white">
+                KẾT QUẢ CUỐI CÙNG
+              </h2>
+              <p className="text-sm text-slate-300">
+                Xếp hạng theo số vòng hoàn thành
+              </p>
             </div>
           </div>
 
@@ -286,14 +349,26 @@ export function Board() {
                   <span
                     className={[
                       "flex h-10 w-10 items-center justify-center rounded-full font-bold",
-                      idx === 0 ? "bg-amber-400 text-slate-900" : "bg-white/20 text-white",
+                      idx === 0
+                        ? "bg-amber-400 text-slate-900"
+                        : "bg-white/20 text-white",
                     ].join(" ")}
                   >
-                    {idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `#${idx + 1}`}
+                    {idx === 0
+                      ? "🥇"
+                      : idx === 1
+                        ? "🥈"
+                        : idx === 2
+                          ? "🥉"
+                          : `#${idx + 1}`}
                   </span>
                   <div className="min-w-0">
-                    <div className="truncate font-bold text-white">{r.name}</div>
-                    <div className="text-sm text-slate-300">{r.laps} vòng • Ô {r.pos}</div>
+                    <div className="truncate font-bold text-white">
+                      {r.name}
+                    </div>
+                    <div className="text-sm text-slate-300">
+                      {r.laps} vòng • Ô {r.pos}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -311,13 +386,18 @@ export function Board() {
 
           <div
             className="relative grid gap-1 rounded-2xl p-1"
-            style={{ gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gridTemplateRows: "repeat(5, minmax(0, 1fr))" }}
+            style={{
+              gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
+              gridTemplateRows: "repeat(5, minmax(0, 1fr))",
+            }}
           >
             {Array.from({ length: 25 }).map((_, i) => {
               const x = i % 5;
               const y = Math.floor(i / 5);
               const t = tileByCoord.get(keyOf({ x, y })) ?? null;
-              const isActive = t ? state.players[state.currentPlayerIndex].position === t.index : false;
+              const isActive = t
+                ? state.players[state.currentPlayerIndex].position === t.index
+                : false;
               const isFocused = t ? focusIndex === t.index : false;
               const isCenter = isCenterCell(x, y);
 
@@ -325,7 +405,11 @@ export function Board() {
               if (isCenter) {
                 if (x === 2 && y === 2) {
                   return (
-                    <div key={i} className="col-span-3 row-span-3 p-1" style={{ gridColumn: "2 / 5", gridRow: "2 / 5" }}>
+                    <div
+                      key={i}
+                      className="col-span-3 row-span-3 p-1"
+                      style={{ gridColumn: "2 / 5", gridRow: "2 / 5" }}
+                    >
                       <BoardCenter turn={state.turn} targetLaps={TARGET_LAPS} />
                     </div>
                   );
@@ -357,10 +441,14 @@ export function Board() {
               {tokenCoords.map((t) => {
                 const left = `${(t.coord.x + 0.5) * 20}%`;
                 const top = `${(t.coord.y + 0.5) * 20}%`;
-                const isActive = t.id === state.players[state.currentPlayerIndex].id;
+                const isActive =
+                  t.id === state.players[state.currentPlayerIndex].id;
                 const stacked = playersAt.get(t.pos) ?? [];
                 const idx = stacked.findIndex((p) => p.id === t.id);
-                const spread = stacked.length > 1 ? (idx - (stacked.length - 1) / 2) * 18 : 0;
+                const spread =
+                  stacked.length > 1
+                    ? (idx - (stacked.length - 1) / 2) * 18
+                    : 0;
 
                 return (
                   <div
@@ -369,7 +457,11 @@ export function Board() {
                       "absolute transition-all duration-500 ease-in-out",
                       isActive ? "z-20" : "z-10",
                     ].join(" ")}
-                    style={{ left, top, transform: `translate(-50%, -50%) translateX(${spread}px)` }}
+                    style={{
+                      left,
+                      top,
+                      transform: `translate(-50%, -50%) translateX(${spread}px)`,
+                    }}
                   >
                     <div
                       className={[
@@ -404,19 +496,28 @@ export function Board() {
             owned={ownedByIndex.get(focusIndex) ?? null}
             owner={
               ownedByIndex.get(focusIndex)
-                ? state.players.find((p) => p.id === ownedByIndex.get(focusIndex)!.ownerId) ?? null
+                ? (state.players.find(
+                    (p) => p.id === ownedByIndex.get(focusIndex)!.ownerId,
+                  ) ?? null)
                 : null
             }
           />
-          <StatsPanel players={state.players} owned={state.owned} tiles={tiles} />
+          <StatsPanel
+            players={state.players}
+            owned={state.owned}
+            tiles={tiles}
+          />
           <LogPanel logs={state.logs} />
         </div>
       </div>
 
       {/* Modals */}
-      {flashTile && <Flashcard tile={flashTile} owned={flashOwned} onClose={closeModal} />}
+      {flashTile && (
+        <Flashcard tile={flashTile} owned={flashOwned} onClose={closeModal} />
+      )}
       {activeQuestion && <QuestionModal question={activeQuestion} />}
-      {isGameOver && <WinnerModal ranking={ranking} />}
+      {activeLuckyEffect && <LuckyModal effect={activeLuckyEffect} />}
+      {showWinnerModal && <WinnerModal ranking={ranking} />}
     </div>
   );
 }
