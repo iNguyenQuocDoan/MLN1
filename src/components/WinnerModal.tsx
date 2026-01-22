@@ -37,9 +37,9 @@ export function WinnerModal({ ranking }: { ranking: RankedPlayer[] }) {
   const [confettiSeed] = useState<number>(() => Date.now());
 
   useEffect(() => {
-    // Play winner sound (using Mixkit CDN directly - victory/success fanfare)
+    // Play winner sound
     const audio = new Audio(
-      "https://assets.mixkit.co/active_storage/sfx/2020/2020-preview.mp3",
+      "https://cdn.pixabay.com/audio/2021/08/04/audio_0625c1539c.mp3",
     );
     audio.volume = 0.8;
     audio.play().catch(() => {

@@ -5,7 +5,7 @@ import { Sparkles, Dice1, ArrowUp, ArrowDown, Clover } from "lucide-react";
 import { useGame } from "@/context/GameContext";
 import type { LuckyEffect } from "@/lib/types";
 
-const LUCKY_SOUND = "https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3";
+const LUCKY_SOUND = "https://cdn.pixabay.com/audio/2021/08/04/audio_12b0c7443c.mp3";
 
 function getEffectInfo(effect: LuckyEffect) {
   switch (effect.kind) {

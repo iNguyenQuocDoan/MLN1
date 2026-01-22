@@ -39,13 +39,13 @@ const optionColors = [
 
 const optionLabels = ["A", "B", "C", "D"];
 const CONFETTI_EMOJIS = ["🎉", "⭐", "✨", "🌟", "💫", "🎊", "🏆"] as const;
-// Sound effects URLs (using Mixkit CDN directly)
+// Sound effects URLs
 const WRONG_ANSWER_SOUND =
-  "https://assets.mixkit.co/active_storage/sfx/2955/2955-preview.mp3";
+  "https://cdn.pixabay.com/audio/2022/03/10/audio_4dedf2f94e.mp3";
 const CORRECT_ANSWER_SOUND =
-  "https://assets.mixkit.co/active_storage/sfx/2018/2018-preview.mp3";
+  "https://cdn.pixabay.com/audio/2021/08/04/audio_12b0c7443c.mp3";
 const TIMEOUT_SOUND =
-  "https://assets.mixkit.co/active_storage/sfx/2964/2964-preview.mp3";
+  "https://cdn.pixabay.com/audio/2022/03/10/audio_4dedf2f94e.mp3";
 
 export function QuestionModal(props: { question: Question }) {
   const { question } = props;

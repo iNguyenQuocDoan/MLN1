@@ -123,9 +123,9 @@ export function ControlPanel() {
       return;
     }
 
-    // Play dice roll sound (board game dice roll)
+    // Play dice roll sound
     const audio = new Audio(
-      "https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3",
+      "https://cdn.pixabay.com/audio/2022/03/24/audio_c48b356c3f.mp3",
     );
     audio.volume = 0.7;
     audio.play().catch(() => {
