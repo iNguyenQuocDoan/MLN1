@@ -5,7 +5,7 @@ import { Sparkles, Dice1, ArrowUp, ArrowDown, Clover } from "lucide-react";
 import { useGame } from "@/context/GameContext";
 import type { LuckyEffect } from "@/lib/types";
 
-const LUCKY_SOUND = "https://cdn.pixabay.com/audio/2021/08/04/audio_12b0c7443c.mp3";
+const LUCKY_SOUND = "/sounds/random.mp3";
 
 function getEffectInfo(effect: LuckyEffect) {
   switch (effect.kind) {
@@ -76,7 +76,11 @@ export function LuckyModal({ effect }: { effect: LuckyEffect }) {
                 animationDuration: `${0.5 + Math.random() * 1}s`,
               }}
             >
-              {confettiEmojis[Math.floor(Math.random() * confettiEmojis.length)]}
+              {
+                confettiEmojis[
+                  Math.floor(Math.random() * confettiEmojis.length)
+                ]
+              }
             </div>
           ))}
         </div>
@@ -116,7 +120,9 @@ export function LuckyModal({ effect }: { effect: LuckyEffect }) {
         {/* Effect Display */}
         <div className="mx-6 mb-6 overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-6">
           <div className="flex flex-col items-center gap-4 text-center">
-            <div className={`rounded-full bg-gradient-to-br ${info.color} p-4 text-white shadow-lg`}>
+            <div
+              className={`rounded-full bg-gradient-to-br ${info.color} p-4 text-white shadow-lg`}
+            >
               {info.icon}
             </div>
             <div>

@@ -40,12 +40,9 @@ const optionColors = [
 const optionLabels = ["A", "B", "C", "D"];
 const CONFETTI_EMOJIS = ["🎉", "⭐", "✨", "🌟", "💫", "🎊", "🏆"] as const;
 // Sound effects URLs
-const WRONG_ANSWER_SOUND =
-  "https://cdn.pixabay.com/audio/2022/03/10/audio_4dedf2f94e.mp3";
-const CORRECT_ANSWER_SOUND =
-  "https://cdn.pixabay.com/audio/2021/08/04/audio_12b0c7443c.mp3";
-const TIMEOUT_SOUND =
-  "https://cdn.pixabay.com/audio/2022/03/10/audio_4dedf2f94e.mp3";
+const WRONG_ANSWER_SOUND = "/sounds/incorrect.mp3";
+const CORRECT_ANSWER_SOUND = "/sounds/correct.mp3";
+const TIMEOUT_SOUND = "/sounds/incorrect.mp3";
 
 export function QuestionModal(props: { question: Question }) {
   const { question } = props;

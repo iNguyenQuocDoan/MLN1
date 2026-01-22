@@ -38,9 +38,7 @@ export function WinnerModal({ ranking }: { ranking: RankedPlayer[] }) {
 
   useEffect(() => {
     // Play winner sound
-    const audio = new Audio(
-      "https://cdn.pixabay.com/audio/2021/08/04/audio_0625c1539c.mp3",
-    );
+    const audio = new Audio("/sounds/winner.mp3");
     audio.volume = 0.8;
     audio.play().catch(() => {
       // Audio autoplay may be blocked by browser

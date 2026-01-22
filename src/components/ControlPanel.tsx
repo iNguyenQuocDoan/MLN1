@@ -124,9 +124,7 @@ export function ControlPanel() {
     }
 
     // Play dice roll sound
-    const audio = new Audio(
-      "https://cdn.pixabay.com/audio/2022/03/24/audio_c48b356c3f.mp3",
-    );
+    const audio = new Audio("/sounds/dice.mp3");
     audio.volume = 0.7;
     audio.play().catch(() => {
       // Silently fail if autoplay restricted

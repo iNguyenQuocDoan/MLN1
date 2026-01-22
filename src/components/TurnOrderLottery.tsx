@@ -25,6 +25,13 @@ export function TurnOrderLottery({ players, onComplete, onClose }: Props) {
   const intervalRef = React.useRef<NodeJS.Timeout | null>(null); // Ref để lưu interval
 
   const startLottery = () => {
+    // Play random sound
+    const audio = new Audio("/sounds/random.mp3");
+    audio.volume = 0.7;
+    audio.play().catch(() => {
+      // Silently fail if autoplay restricted
+    });
+
     // Clear interval cũ nếu có
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
@@ -49,15 +56,17 @@ export function TurnOrderLottery({ players, onComplete, onClose }: Props) {
       available.splice(randomIndex, 1);
     }
 
-    // Animation quay màu
-    let rotations = 0;
-    const maxRotations = 30 + Math.floor(Math.random() * 20); // 30-50 rotations
+    // Animation quay màu - cố định 3 giây
+    const ANIMATION_DURATION = 3000; // 3 giây
+    const INTERVAL_SPEED = 80; // Tốc độ chuyển màu (ms)
+    const startTime = Date.now();
 
     intervalRef.current = setInterval(() => {
+      const elapsed = Date.now() - startTime;
       setCurrentIndex((prev) => (prev + 1) % players.length);
-      rotations++;
 
-      if (rotations >= maxRotations) {
+      // Dừng sau đúng 3 giây
+      if (elapsed >= ANIMATION_DURATION) {
         if (intervalRef.current) {
           clearInterval(intervalRef.current);
           intervalRef.current = null;
@@ -68,7 +77,7 @@ export function TurnOrderLottery({ players, onComplete, onClose }: Props) {
           setShowResults(true);
         }, 300);
       }
-    }, 100);
+    }, INTERVAL_SPEED);
   };
 
   // Cleanup khi unmount
