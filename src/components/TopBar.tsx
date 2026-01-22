@@ -51,7 +51,7 @@ export function TopBar() {
   if (pathname?.startsWith("/game")) return null;
 
   return (
-    <div className="sticky top-0 z-40 border-b border-white/10 bg-slate-950/60 backdrop-blur">
+    <div className="border-b border-white/10 bg-slate-950/80">
       <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-6 py-3">
         <div className="flex flex-wrap items-center gap-2">
           {nav.map((n) => {
