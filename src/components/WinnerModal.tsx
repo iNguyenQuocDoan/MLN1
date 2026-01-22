@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from "react";
 import { Trophy, Crown, Star, Sparkles, RotateCcw, Home } from "lucide-react";
 import { useGame } from "@/context/GameContext";
-import { useSession } from "@/context/SessionContext";
 import { TARGET_LAPS } from "@/lib/gameData";
 import Link from "next/link";
 
@@ -18,10 +17,13 @@ type RankedPlayer = {
   wrong: number;
 };
 
+const CONFETTI_EMOJIS = ["🎉", "⭐", "✨", "🌟", "💫", "🎊", "🏆", "👑", "🥇", "🎯"] as const;
+
 export function WinnerModal({ ranking }: { ranking: RankedPlayer[] }) {
   const { reset } = useGame();
   const [showConfetti, setShowConfetti] = useState(true);
   const [animateIn, setAnimateIn] = useState(false);
+  const [confettiSeed] = useState<number>(() => Date.now());
 
   useEffect(() => {
     // Trigger entrance animation
@@ -32,25 +34,46 @@ export function WinnerModal({ ranking }: { ranking: RankedPlayer[] }) {
   }, []);
 
   const winner = ranking[0];
-  const confettiEmojis = ["🎉", "⭐", "✨", "🌟", "💫", "🎊", "🏆", "👑", "🥇", "🎯"];
   const rankEmojis = ["🥇", "🥈", "🥉"];
+  const confettiParticles = React.useMemo(() => {
+    if (!confettiSeed) return [];
+
+    let s = confettiSeed;
+    const next = () => {
+      s = (s * 1664525 + 1013904223) >>> 0;
+      return s / 0xffffffff;
+    };
+
+    return Array.from({ length: 50 }).map((_, i) => {
+      const left = `${next() * 100}%`;
+      const duration = 2 + next() * 3;
+      const delay = next() * 2;
+      const emoji = CONFETTI_EMOJIS[Math.floor(next() * CONFETTI_EMOJIS.length)];
+      return {
+        key: `${confettiSeed}-${i}`,
+        left,
+        animation: `confettiFall ${duration}s linear ${delay}s infinite`,
+        emoji,
+      };
+    });
+  }, [confettiSeed]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
       {/* Confetti */}
       {showConfetti && (
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          {Array.from({ length: 50 }).map((_, i) => (
+          {confettiParticles.map((p) => (
             <div
-              key={i}
+              key={p.key}
               className="absolute text-3xl"
               style={{
-                left: `${Math.random() * 100}%`,
+                left: p.left,
                 top: `-5%`,
-                animation: `confettiFall ${2 + Math.random() * 3}s linear ${Math.random() * 2}s infinite`,
+                animation: p.animation,
               }}
             >
-              {confettiEmojis[Math.floor(Math.random() * confettiEmojis.length)]}
+              {p.emoji}
             </div>
           ))}
         </div>

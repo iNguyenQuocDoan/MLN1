@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import type { OwnedProperty, Player, Tile as TileT } from "@/lib/types";
 import { useGame } from "@/context/GameContext";
 import { useSession } from "@/context/SessionContext";
@@ -70,7 +70,8 @@ export function Board() {
   const { state, tiles, closeModal } = useGame();
   const { state: session } = useSession();
   const coords = useMemo(() => perimeterCoords5x5(), []);
-  const [focusIndex, setFocusIndex] = useState<number>(state.players[state.currentPlayerIndex].position);
+  const [manualFocusIndex, setManualFocusIndex] = useState<number | null>(null);
+  const focusIndex = manualFocusIndex ?? state.players[state.currentPlayerIndex].position;
 
   const tileByCoord = useMemo(() => {
     const map = new Map<string, TileT>();
@@ -110,10 +111,6 @@ export function Board() {
       };
     });
   }, [state.players, coords, session.players]);
-
-  useEffect(() => {
-    setFocusIndex(state.players[state.currentPlayerIndex].position);
-  }, [state.currentPlayerIndex, state.players]);
 
   const flashTile =
     state.activeModal.kind === "tileFlashcard" ? tiles[state.activeModal.tileIndex] : null;
@@ -345,8 +342,8 @@ export function Board() {
                       playersHere={playersAt.get(t.index) ?? []}
                       isActive={isActive}
                       isFocused={isFocused}
-                      onHover={() => setFocusIndex(t.index)}
-                      onClick={() => setFocusIndex(t.index)}
+                      onHover={() => setManualFocusIndex(t.index)}
+                      onClick={() => setManualFocusIndex(t.index)}
                     />
                   ) : (
                     <div className="h-full w-full rounded-lg border border-dashed border-slate-200 bg-slate-50/50" />

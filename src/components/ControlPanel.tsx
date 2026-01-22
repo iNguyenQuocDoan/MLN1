@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Dices, LogOut, RotateCcw, Sparkles, HelpCircle } from "lucide-react";
 import { MAX_TURNS, TARGET_LAPS } from "@/lib/gameData";
 import { useGame } from "@/context/GameContext";
@@ -76,17 +76,12 @@ export function ControlPanel() {
     };
   }, []);
 
-  const owned = useMemo(
-    () => state.owned.find((o) => o.tileIndex === current.position) ?? null,
-    [state.owned, current.position]
-  );
-
   const reachedTarget = state.players.some((p) => p.laps >= TARGET_LAPS);
   const isOver = (state.turn >= MAX_TURNS && state.currentPlayerIndex === 0) || reachedTarget;
   const hasActed = state.hasActedThisTurn && current.isHuman;
   const isQuestionOpen = state.activeModal.kind === "question";
 
-  const onRollClick = () => {
+  const onRollClick = useCallback(() => {
     if (isRolling) return;
 
     if (!state.diceAllowance) {
@@ -108,7 +103,7 @@ export function ControlPanel() {
       setIsRolling(false);
       setPreview(null);
     }, 800);
-  };
+  }, [isRolling, openQuestion, rollDice, state.diceAllowance]);
 
   const shownA = isRolling ? preview?.a ?? 1 : state.dice?.a ?? 1;
   const shownB = isRolling ? preview?.b ?? 1 : state.dice?.b ?? 1;

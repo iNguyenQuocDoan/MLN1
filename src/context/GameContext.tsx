@@ -17,7 +17,6 @@ import type {
   PlayerToken,
   Tile,
 } from "@/lib/types";
-import { isProperty } from "@/lib/rules";
 import { useSession } from "@/context/SessionContext";
 
 type ActiveModal =
@@ -115,16 +114,6 @@ function nextIndex(pos: number, steps: number) {
   return { next, passedGo };
 }
 
-function findOwned(state: GameState, tileIndex: number) {
-  return state.owned.find((o) => o.tileIndex === tileIndex) ?? null;
-}
-
-function ownedBy(state: GameState, playerId: PlayerId) {
-  return state.owned
-    .filter((o) => o.ownerId === playerId)
-    .map((o) => o.tileIndex);
-}
-
 function addLog(state: GameState, text: string): GameState {
   const entry: LogEntry = { id: crypto.randomUUID(), turn: state.turn, text };
   return { ...state, logs: [entry, ...state.logs].slice(0, 100) };
@@ -149,20 +138,6 @@ function updatePlayer(
     ...state,
     players: state.players.map((p) => (p.id === playerId ? fn(p) : p)),
   };
-}
-
-function transferCash(
-  state: GameState,
-  from: PlayerId,
-  to: PlayerId,
-  amount: number,
-): GameState {
-  let next = updatePlayer(state, from, (p) => ({
-    ...p,
-    cash: p.cash - amount,
-  }));
-  next = updatePlayer(next, to, (p) => ({ ...p, cash: p.cash + amount }));
-  return next;
 }
 
 function handleLanding(state: GameState, tile: Tile): GameState {

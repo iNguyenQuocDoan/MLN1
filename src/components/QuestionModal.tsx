@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { Question } from "@/lib/questions";
 import { useGame } from "@/context/GameContext";
 import { Sparkles, X } from "lucide-react";
@@ -14,6 +14,12 @@ const optionColors = [
 ];
 
 const optionLabels = ["A", "B", "C", "D"];
+const CONFETTI_EMOJIS = ["🎉", "⭐", "✨", "🌟", "💫", "🎊", "🏆"] as const;
+// Sound effect for wrong answers
+// Priority: local file > fallback URL
+const WRONG_ANSWER_SOUND_SRC = "/sounds/wrong.mp3";
+// Fallback: public sound effect (Mixkit - free to use)
+const WRONG_ANSWER_SOUND_FALLBACK = "https://cdn.jsdelivr.net/gh/remixicon/remixicon@master/sounds/error.mp3";
 
 export function QuestionModal(props: { question: Question }) {
   const { question } = props;
@@ -22,6 +28,10 @@ export function QuestionModal(props: { question: Question }) {
   const [reveal, setReveal] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
   const [shakeWrong, setShakeWrong] = useState(false);
+  const [celebrationSeed, setCelebrationSeed] = useState<number>(0);
+  const [attemptKey, setAttemptKey] = useState<number>(0);
+  const lastPlayedAttemptRef = useRef<number>(0);
+  const [canContinue, setCanContinue] = useState(false);
 
   const isCorrect = useMemo(
     () => (picked === null ? null : picked === question.answerIndex),
@@ -33,42 +43,101 @@ export function QuestionModal(props: { question: Question }) {
     const correct = picked === question.answerIndex;
 
     setReveal(true);
+    setAttemptKey(Date.now());
+    setCanContinue(false);
 
     if (correct) {
+      setCelebrationSeed(Date.now());
       setShowCelebration(true);
-      setTimeout(() => {
-        answerQuestion(true);
-      }, 1200);
+      // Let the player read/celebrate; enable manual continue.
+      setTimeout(() => setCanContinue(true), 900);
     } else {
       setShakeWrong(true);
       setTimeout(() => {
         setShakeWrong(false);
       }, 500);
-      setTimeout(() => {
-        answerQuestion(false);
-      }, 1500);
+      // Let the player read the explanation; enable manual continue.
+      setTimeout(() => setCanContinue(true), 800);
     }
   };
 
+  const finalizeAndClose = () => {
+    if (picked === null) {
+      closeModal();
+      return;
+    }
+    answerQuestion(picked === question.answerIndex);
+  };
+
+  useEffect(() => {
+    if (!reveal) return;
+    if (isCorrect !== false) return;
+    if (!attemptKey) return;
+    if (lastPlayedAttemptRef.current === attemptKey) return;
+    lastPlayedAttemptRef.current = attemptKey;
+
+    // Play a short sound when the answer is wrong.
+    const playSound = async (src: string): Promise<void> => {
+      return new Promise((resolve, reject) => {
+        try {
+          const audio = new Audio(src);
+          audio.volume = 0.7;
+          audio.onerror = () => reject(new Error("Audio load failed"));
+          audio.oncanplaythrough = () => {
+            void audio.play().then(resolve).catch(reject);
+          };
+          audio.load();
+        } catch (err) {
+          reject(err);
+        }
+      });
+    };
+
+    // Try local file first, fallback to public URL if not found
+    playSound(WRONG_ANSWER_SOUND_SRC).catch(() => {
+      // If local file fails, try fallback URL
+      playSound(WRONG_ANSWER_SOUND_FALLBACK).catch(() => {
+        // Silently fail if both fail (autoplay restrictions / unsupported)
+      });
+    });
+  }, [attemptKey, isCorrect, reveal]);
+
   // Confetti particles for celebration
-  const confettiEmojis = ["🎉", "⭐", "✨", "🌟", "💫", "🎊", "🏆"];
+  const confettiParticles = useMemo(() => {
+    if (!showCelebration || !celebrationSeed) return [];
+
+    // Simple deterministic PRNG (LCG) so we don't call Math.random() during render.
+    let s = celebrationSeed;
+    const next = () => {
+      s = (s * 1664525 + 1013904223) >>> 0;
+      return s / 0xffffffff;
+    };
+
+    return Array.from({ length: 30 }).map((_, i) => {
+      const left = `${next() * 100}%`;
+      const top = `${next() * 100}%`;
+      const animationDelay = `${next() * 0.5}s`;
+      const emoji = CONFETTI_EMOJIS[Math.floor(next() * CONFETTI_EMOJIS.length)];
+      return { key: `${celebrationSeed}-${i}`, left, top, animationDelay, emoji };
+    });
+  }, [celebrationSeed, showCelebration]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
       {/* Celebration Overlay */}
       {showCelebration && (
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          {Array.from({ length: 30 }).map((_, i) => (
+          {confettiParticles.map((p) => (
             <div
-              key={i}
+              key={p.key}
               className="absolute text-2xl celebrate"
               style={{
-                left: `${Math.random() * 100}%`,
-                top: `${Math.random() * 100}%`,
-                animationDelay: `${Math.random() * 0.5}s`,
+                left: p.left,
+                top: p.top,
+                animationDelay: p.animationDelay,
               }}
             >
-              {confettiEmojis[Math.floor(Math.random() * confettiEmojis.length)]}
+              {p.emoji}
             </div>
           ))}
         </div>
@@ -123,7 +192,7 @@ export function QuestionModal(props: { question: Question }) {
             </div>
 
             <button
-              onClick={closeModal}
+              onClick={finalizeAndClose}
               className="shrink-0 rounded-xl bg-white/10 p-2 text-white transition-all hover:bg-white/20"
             >
               <X className="h-5 w-5" />
@@ -238,6 +307,19 @@ export function QuestionModal(props: { question: Question }) {
               >
                 Xác nhận →
               </button>
+              {reveal && (
+                <button
+                  onClick={finalizeAndClose}
+                  disabled={!canContinue}
+                  className={[
+                    "rounded-xl px-4 py-2 text-sm font-bold transition-all",
+                    "bg-white/10 text-white hover:bg-white/20",
+                    "disabled:opacity-50 disabled:cursor-not-allowed",
+                  ].join(" ")}
+                >
+                  Tiếp tục
+                </button>
+              )}
             </div>
           </div>
 

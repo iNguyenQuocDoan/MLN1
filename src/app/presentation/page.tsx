@@ -227,8 +227,8 @@ export default function PresentationPage() {
 
           <blockquote className="mx-auto max-w-2xl rounded-xl bg-white/10 p-6 backdrop-blur">
             <p className="text-xl italic leading-relaxed md:text-2xl">
-              "Con người trước hết phải có ăn, ở, mặc, đi lại, sau đó mới có thể làm chính trị, khoa học, nghệ thuật,
-              tôn giáo."
+              &ldquo;Con người trước hết phải có ăn, ở, mặc, đi lại, sau đó mới có thể làm chính trị, khoa học, nghệ thuật,
+              tôn giáo.&rdquo;
             </p>
             <footer className="mt-4 text-sm font-semibold text-red-200">— Karl Marx</footer>
           </blockquote>

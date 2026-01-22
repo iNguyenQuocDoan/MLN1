@@ -6,7 +6,7 @@ import { propertyGroups } from "@/lib/gameData";
 import { isProperty } from "@/lib/rules";
 
 export function TileDetail(props: { tile: Tile | null; owned: OwnedProperty | null; owner: Player | null }) {
-  const { tile, owned, owner } = props;
+  const { tile, owner } = props;
   const prop = tile && isProperty(tile) ? tile : null;
   const group = prop ? propertyGroups.find((g) => g.id === prop.groupId) : null;
 
