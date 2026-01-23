@@ -17,7 +17,7 @@ export default function GamePage() {
     if (!audioRef.current) {
       audioRef.current = new Audio("/sounds/main-sound.mp3");
       audioRef.current.loop = true;
-      audioRef.current.volume = 0.3;
+      audioRef.current.volume = 0.15;
       audioRef.current.play().catch(() => {
         // Silently fail if autoplay restricted
       });
